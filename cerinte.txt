@@ -1,0 +1,19 @@
+Cerințe Funcționale
+
+C1. Introducere parametri căutare
+  - Aplicația trebuie să permită utilizatorului să introducă o rută (Plecare, Destinație) și o dată pentru călătorie.
+
+C2. Scraping feroviar de bază
+  - Extragerea datelor în timp real pentru o rută selectată: numărul trenului, ora de plecare/sosire și verificarea dacă trenul are locuri disponibile sau dacă biletele s-au epuizat.
+
+3. Scraping prețuri avioane
+  - Colectarea prețurilor pentru zboruri directe între aceleași locații de pe site-urile a 1-2 companii aeriene populare pentru data selectată.
+
+C4. Schimbare regiune (Simulare VPN)
+  - Implementarea unei opțiuni simple de a schimba IP-ul/țara pentru a verifica dacă prețul biletelor de avion se modifică în funcție de regiune.
+
+C5. Integrare transport alternativ 
+  - Extragerea ofertelor disponibile pentru aceeași rută și dată de pe o platformă de autobuze sau BlaBlaCar (preț și locuri rămase).
+
+C6. Modul de comparație prețuri 
+  - Afișarea tuturor opțiunilor găsite (tren, avion, autobuz) într-o listă sau tabel comparativ, sortate automat de la cel mai ieftin la cel mai scump mijloc de transport.

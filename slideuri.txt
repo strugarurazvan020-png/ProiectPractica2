@@ -1,0 +1,25 @@
+Structură Slide-uri: De la Obiecte 3D la Pixeli pe Ecran
+
+Slide 1: Introducere în Grafica 3D (Titlu & Context)
+
+Slide 2: O scurtă istorie a randării: De la iluzia 2.5D (Doom) la 3D-ul real (Quake)
+
+Slide 3: Modelarea 3D – Cum este reprezentat un obiect în spațiu?
+Conceptul de rețea de poligoane (Polygon Mesh), vertecși (coordonate X, Y, Z), muchii și fețe (de regulă triunghiuri).
+
+Slide 4: Spații de Coordonate și Transformări Geometrice
+Cum trece un obiect prin diferite spații matematice
+
+Slide 5: Proiecția Virtuală – Transformarea 3D în 2D
+
+Slide 6: Decuparea și Eliminarea Geometriei Ascunse (Clipping & Culling)
+
+Slide 7: Rasterizarea – Transformarea triunghiurilor în pixeli (Fragments)
+Procesul hardware prin care ecranul împarte triunghiurile matematice într-o grilă de pixeli. Cum determină placa grafică ce pixeli se află în interiorul unui triunghi.
+
+Slide 8: Texturarea și Shading-ul – Culoare, Lumină și Umbre
+
+Slide 9: Rezolvarea Vizibilității și Buffer-ele (Z-Buffering & Framebuffer)
+Cum știe placa grafică ce obiect este în fața altuia? Conceptul de *Z-Buffer* (buffer-ul de adâncime) și cum ajunge imaginea finală în *Framebuffer* pentru a fi trimisă către monitor.
+
+Slide 10: Concluzii și Viitorul Randării (Ray Tracing vs. Rasterizare)
