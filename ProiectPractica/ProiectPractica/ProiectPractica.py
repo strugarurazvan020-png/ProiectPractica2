@@ -1,6 +1,5 @@
 ﻿import time
 import re
-import traceback
 from datetime import datetime, timedelta
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -45,7 +44,6 @@ def selecteaza_data(driver, data_str):
 
 
 def citeste_parametri():
-    # # c1
     plecare = input("Statie de plecare (ex: Bucuresti Nord): ").strip()
     while not plecare:
         plecare = input("Nu poate fi gol. Statie de plecare: ").strip()
@@ -67,6 +65,14 @@ def citeste_parametri():
 
     print()
     return {"plecare": plecare, "sosire": sosire, "data": data_calatorie}
+
+
+def nume_oras_pentru_avion(statie_tren):
+    sufixe = ["Nord", "Sud", "Est", "Vest", "Centrala", "Calatori", "Triaj", "Vama"]
+    cuvinte = statie_tren.strip().split()
+    while len(cuvinte) > 1 and cuvinte[-1] in sufixe:
+        cuvinte.pop()
+    return " ".join(cuvinte)
 
 
 def verifica_disponibilitate(tren_element, n):
@@ -107,13 +113,7 @@ def extrage_pret(driver, tren_element, wait, n):
         return None
 
 
-def nume_oras_pentru_avion(statie_tren):
-    sufixe = ["Nord", "Sud", "Est", "Vest", "Centrala", "Calatori", "Triaj", "Vama"]
-    cuvinte = statie_tren.strip().split()
-    while len(cuvinte) > 1 and cuvinte[-1] in sufixe:
-        cuvinte.pop()
-    return " ".join(cuvinte)
-
+LUNI_RO_CALENDAR = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
 
 def selecteaza_doar_dus(driver, wait):
     eticheta_tip_zbor = wait.until(EC.presence_of_element_located((By.XPATH, '//label[contains(text(), "Tip zbor")]')))
@@ -156,9 +156,6 @@ def introdu_statie(driver, wait, eticheta_camp, valoare):
     time.sleep(0.3)
     input_camp.send_keys(Keys.ENTER)
     time.sleep(0.5)
-
-
-LUNI_RO_CALENDAR = ["Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie", "Iulie", "August", "Septembrie", "Octombrie", "Noiembrie", "Decembrie"]
 
 
 def selecteaza_data_vola(driver, wait, data_str):
@@ -234,7 +231,7 @@ def extrage_zboruri_vola(driver):
                 if re.match(r'^\d{2}:\d{2}$', text):
                     if text not in ore:
                         ore.append(text)
-            
+
             ora_plecare = ore[0] if len(ore) > 0 else "?"
             ora_sosire = ore[1] if len(ore) > 1 else "?"
 
@@ -249,7 +246,7 @@ def extrage_zboruri_vola(driver):
                         if cautare_pret:
                             pret = f"{cautare_pret.group(1)} €"
                             break
-                
+
                 if pret == "?":
                     text_complet_card = card.get_attribute("innerText").replace('\xa0', ' ')
                     linii = text_complet_card.split('\n')
@@ -317,131 +314,305 @@ def scrape_vola(driver, plecare, sosire, data_str):
     return extrage_zboruri_vola(driver)
 
 
-# Execuție Proiect
-parametri = citeste_parametri()
+def scrape_flixbus(driver, plecare, sosire, data_str):
+    rezultate = []
+    wait = WebDriverWait(driver, 15)
 
-chrome_options = uc.ChromeOptions()
-chrome_options.add_experimental_option("prefs", {
-    "profile.default_content_setting_values.geolocation": 2,
-    "profile.default_content_setting_values.notifications": 2,
-})
-driver = uc.Chrome(version_main=150, options=chrome_options)
-driver.maximize_window()
-actions = ActionChains(driver)
-
-try:
-    driver.get("https://www.google.com")
-    time.sleep(3)
-    try:
-        buton_cookie = driver.find_element(By.XPATH, '//button[contains(., "Acceptă tot")]')
-        buton_cookie.click()
-        time.sleep(2)
-    except Exception:
-        pass
-
-    cautare = driver.find_element(By.NAME, "q")
-    cautare.send_keys("CFR Calatori")
-    cautare.send_keys(Keys.RETURN)
+    driver.get("https://shop.flixbus.ro/search")
     time.sleep(3)
 
     try:
-        first_res = driver.find_element(By.XPATH, '//a//h3')
-        first_res.click()
-        time.sleep(5)
+        script_cookie = """
+            let host = document.querySelector('#usercentrics-cmp-ui') || document.querySelector('div[id*="usercentrics"]');
+            if (host && host.shadowRoot) {
+                let btn = host.shadowRoot.querySelector('button[data-testid="uc-accept-all-button"]') || 
+                          host.shadowRoot.querySelector('#uc-btn-accept-banner') ||
+                          host.shadowRoot.querySelector('button.uc-btn-accept-all');
+                if (btn) {
+                    btn.click();
+                    return true;
+                }
+            }
+            return false;
+        """
+        for _ in range(5):
+            if driver.execute_script(script_cookie):
+                time.sleep(1.5)
+                break
+            time.sleep(1)
     except Exception:
         pass
 
     try:
-        buton_plecare = driver.find_element(By.XPATH, '//input[@placeholder="Stație de plecare"]')
-        buton_plecare.send_keys(parametri["plecare"])
+        input_plecare = wait.until(EC.element_to_be_clickable((By.ID, "searchInput-from")))
+        input_plecare.click()
+        time.sleep(0.5)
+        input_plecare.send_keys(Keys.CONTROL, "a")
+        input_plecare.send_keys(Keys.DELETE)
+        input_plecare.send_keys(plecare)
         time.sleep(1.5)
-        buton_plecare.send_keys(Keys.ARROW_DOWN)
-        buton_plecare.send_keys(Keys.ENTER)
-        time.sleep(2)
+        input_plecare.send_keys(Keys.ARROW_DOWN)
+        time.sleep(0.5)
+        input_plecare.send_keys(Keys.ENTER)
+        time.sleep(1)
+    except Exception:
+        pass
 
-        buton_sosire = driver.find_element(By.XPATH, '//input[@placeholder="Stație de sosire"]')
-        buton_sosire.send_keys(parametri["sosire"])
+    try:
+        input_sosire = wait.until(EC.element_to_be_clickable((By.ID, "searchInput-to")))
+        input_sosire.click()
+        time.sleep(0.5)
+        input_sosire.send_keys(Keys.CONTROL, "a")
+        input_sosire.send_keys(Keys.DELETE)
+        input_sosire.send_keys(sosire)
         time.sleep(1.5)
-        buton_sosire.send_keys(Keys.ARROW_DOWN)
-        buton_sosire.send_keys(Keys.ENTER)
-        time.sleep(1.5)
+        input_sosire.send_keys(Keys.ARROW_DOWN)
+        time.sleep(0.5)
+        input_sosire.send_keys(Keys.ENTER)
+        time.sleep(1)
+    except Exception:
+        pass
+
+    try:
+        zi = int(data_str.split(".")[0])
+        camp_data = wait.until(EC.element_to_be_clickable((By.ID, "dateInput-from")))
+        camp_data.click()
+        time.sleep(1)
+
+        zi_gasita = False
+        for _ in range(12):
+            butoane_zile = driver.find_elements(By.CSS_SELECTOR, 'button[class*="hcr-calendar__btn"]')
+            for btn in butoane_zile:
+                if btn.text.strip() == str(zi) and btn.is_displayed():
+                    driver.execute_script("arguments[0].click();", btn)
+                    zi_gasita = True
+                    time.sleep(0.5)
+                    break
+            if zi_gasita:
+                break
+            try:
+                btn_next = driver.find_element(By.CSS_SELECTOR, 'button[aria-label="Show next month"]')
+                driver.execute_script("arguments[0].click();", btn_next)
+                time.sleep(0.5)
+            except Exception:
+                break
+    except Exception:
+        pass
+
+    try:
+        url_initial = driver.current_url
+        btn_cauta = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'div[data-e2e="search-button"] button')
+        ))
+        driver.execute_script("arguments[0].click();", btn_cauta)
+        WebDriverWait(driver, 15).until(lambda d: d.current_url != url_initial or "search" in d.current_url.lower())
+        time.sleep(4)
+    except Exception:
+        pass
+
+    try:
+        driver.execute_script("window.scrollBy(0, 300);")
+        time.sleep(2)
 
         try:
-            selecteaza_data(driver, parametri["data"])
+            curse_li = WebDriverWait(driver, 20).until(
+                lambda d: d.find_elements(By.CSS_SELECTOR, 'li[aria-posinset]') or False
+            )
         except Exception:
-            pass
+            curse_li = driver.find_elements(By.CSS_SELECTOR, 'li[data-e2e="search-result-item"]')
 
-        actions.send_keys(Keys.ENTER).perform()
-        time.sleep(6.5)
-    except Exception:
-        pass
-
-    print("REZULTATE TRENURI (CFR)")
-    try:
-        wait = WebDriverWait(driver, 10)
-        trenuri = driver.find_elements(By.XPATH, '//div[contains(@class, "div-itineraries-row-main")]')
-        
-        # # c2
-        for index, tren in enumerate(trenuri, start=1):
+        for index_cursa, cursa in enumerate(curse_li):
             try:
-                try:
-                    id_tren = tren.find_element(By.XPATH, './/a[contains(@href, "Tren")]').text
-                    id_tren = id_tren.strip().replace('\n', ' ')
-                except Exception:
-                    continue
-                try:
-                    ora_plecare = tren.find_element(By.XPATH, '(.//span[contains(@class, "text-1-4rem")])[1]').text
-                except Exception:
-                    ora_plecare = "?"
-                try:
-                    ora_sosire = tren.find_element(By.XPATH, '(.//span[contains(@class, "text-1-4rem")])[2]').get_attribute("textContent")
-                except Exception:
-                    ora_sosire = "?"
+                ora_p = "?"
+                ora_s = "?"
+                pret = "?"
 
                 try:
-                    buton_detalii = tren.find_element(By.XPATH, './/button[contains(@id, "-details")]')
-                    n = re.search(r"button-itinerary-(\d+)-details", buton_detalii.get_attribute("id")).group(1)
+                    el_plecare = cursa.find_element(
+                        By.CSS_SELECTOR, '[data-e2e="search-result-departure-time"] time'
+                    )
+                    ora_p = el_plecare.text.strip()
                 except Exception:
-                    n = None
+                    pass
 
-                disponibilitate = verifica_disponibilitate(tren, n) if n else "Necunoscut"
-                pret = extrage_pret(driver, tren, wait, n) if n else None
-                pret_afisat = pret if pret else "indisponibil"
+                try:
+                    el_sosire = cursa.find_element(
+                        By.CSS_SELECTOR, '[data-e2e="search-result-arrival-time"] time'
+                    )
+                    ora_s = el_sosire.text.strip()
+                except Exception:
+                    pass
 
-                print(f"CFR: {id_tren} | {ora_plecare.strip()} -> {ora_sosire.strip()} | Pret: {pret_afisat} | [{disponibilitate}]")
+                try:
+                    el_buton_pret = cursa.find_element(By.CSS_SELECTOR, 'button[class*="priceBook"]')
+                    pret = (el_buton_pret.get_attribute("aria-label") or "").replace('\xa0', ' ').strip()
+                except Exception:
+                    pass
+                if not pret or pret == "?":
+                    try:
+                        el_pret = cursa.find_element(By.CSS_SELECTOR, '[data-e2e="search-result-prices"]')
+                        pret = el_pret.text.replace('\xa0', ' ').strip()
+                    except Exception:
+                        pass
+
+                txt = cursa.text.replace('\xa0', ' ')
+
+                if (ora_p == "?" or pret == "?") and index_cursa < 2:
+                    print(f"FlixBus DEBUG cursa {index_cursa}: lungime text = {len(txt)}, "
+                          f"continut text (primele 300 caractere) = {txt[:300]!r}")
+
+                if ora_p == "?" or ora_s == "?":
+                    ore = re.findall(r'\b\d{1,2}:\d{2}(?:\s*[AP]M)?\b', txt, re.IGNORECASE)
+                    if ora_p == "?":
+                        ora_p = ore[0] if len(ore) > 0 else "?"
+                    if ora_s == "?":
+                        ora_s = ore[1] if len(ore) > 1 else "?"
+
+                if pret == "?":
+                    cautare_pret = re.search(r'([$€]\s*\d+(?:[\.,]\d+)?|\d+(?:[\.,]\d+)?\s*(?:lei|RON|€|\$))', txt, re.IGNORECASE)
+                    pret = cautare_pret.group(0) if cautare_pret else "Indisponibil"
+
+                rezultate.append({
+                    "plecare": ora_p,
+                    "sosire": ora_s,
+                    "pret": pret
+                })
             except Exception:
                 continue
     except Exception:
-        print("Nu s-au putut prelua datele CFR.")
-
-    print("\nREZULTATE ZBORURI (VOLA)")
-    try:
-        oras_avion_plecare = nume_oras_pentru_avion(parametri["plecare"])
-        oras_avion_sosire = nume_oras_pentru_avion(parametri["sosire"])
-        
-        # # c3
-        rezultate_vola = scrape_vola(driver, oras_avion_plecare, oras_avion_sosire, parametri["data"])
-        
-        if rezultate_vola:
-            for r in rezultate_vola:
-                print(f"Vola: {r['plecare']} -> {r['sosire']} | Pret: {r['pret']}")
-        else:
-            print("Nu s-au găsit zboruri pe această rută/dată.")
-    except Exception:
-        print("A apărut o eroare la scanarea Vola.")
-
-    # # c4
-    # Loc rezervat pentru viitoarea implementare a schimbării de regiune (Simulare VPN)
-
-    # # c5
-    # Loc rezervat pentru viitoarea integrare transport alternativ (Autobuz / BlaBlaCar)
-
-    # # c6
-    # Loc rezervat pentru viitorul modul de comparație și sortare prețuri
-
-finally:
-    try:
-        driver.close()
-        driver.quit()
-    except Exception:
         pass
+
+    return rezultate
+
+
+if __name__ == "__main__":
+    parametri = citeste_parametri()
+
+    chrome_options = uc.ChromeOptions()
+    chrome_options.add_experimental_option("prefs", {
+        "profile.default_content_setting_values.geolocation": 2,
+        "profile.default_content_setting_values.notifications": 2,
+    })
+
+    driver = uc.Chrome(version_main=150, options=chrome_options, use_subprocess=True)
+    driver.maximize_window()
+    actions = ActionChains(driver)
+
+    try:
+        driver.get("https://www.google.com")
+        time.sleep(3)
+        try:
+            buton_cookie = driver.find_element(By.XPATH, '//button[contains(., "Acceptă tot")]')
+            buton_cookie.click()
+            time.sleep(2)
+        except Exception:
+            pass
+
+        cautare = driver.find_element(By.NAME, "q")
+        cautare.send_keys("CFR Calatori")
+        cautare.send_keys(Keys.RETURN)
+        time.sleep(3)
+
+        try:
+            first_res = driver.find_element(By.XPATH, '//a//h3')
+            first_res.click()
+            time.sleep(5)
+        except Exception:
+            pass
+
+        try:
+            buton_plecare = driver.find_element(By.XPATH, '//input[@placeholder="Stație de plecare"]')
+            buton_plecare.send_keys(parametri["plecare"])
+            time.sleep(1.5)
+            buton_plecare.send_keys(Keys.ARROW_DOWN)
+            buton_plecare.send_keys(Keys.ENTER)
+            time.sleep(2)
+
+            buton_sosire = driver.find_element(By.XPATH, '//input[@placeholder="Stație de sosire"]')
+            buton_sosire.send_keys(parametri["sosire"])
+            time.sleep(1.5)
+            buton_sosire.send_keys(Keys.ARROW_DOWN)
+            buton_sosire.send_keys(Keys.ENTER)
+            time.sleep(1.5)
+
+            try:
+                selecteaza_data(driver, parametri["data"])
+            except Exception:
+                pass
+
+            actions.send_keys(Keys.ENTER).perform()
+            time.sleep(6.5)
+        except Exception:
+            pass
+
+        print("REZULTATE TRENURI (CFR)")
+        try:
+            wait = WebDriverWait(driver, 10)
+            trenuri = driver.find_elements(By.XPATH, '//div[contains(@class, "div-itineraries-row-main")]')
+
+            for index, tren in enumerate(trenuri, start=1):
+                try:
+                    try:
+                        id_tren = tren.find_element(By.XPATH, './/a[contains(@href, "Tren")]').text
+                        id_tren = id_tren.strip().replace('\n', ' ')
+                    except Exception:
+                        continue
+                    try:
+                        ora_plecare = tren.find_element(By.XPATH, '(.//span[contains(@class, "text-1-4rem")])[1]').text
+                    except Exception:
+                        ora_plecare = "?"
+                    try:
+                        ora_sosire = tren.find_element(By.XPATH, '(.//span[contains(@class, "text-1-4rem")])[2]').get_attribute("textContent")
+                    except Exception:
+                        ora_sosire = "?"
+
+                    try:
+                        buton_detalii = tren.find_element(By.XPATH, './/button[contains(@id, "-details")]')
+                        n = re.search(r"button-itinerary-(\d+)-details", buton_detalii.get_attribute("id")).group(1)
+                    except Exception:
+                        n = None
+
+                    disponibilitate = verifica_disponibilitate(tren, n) if n else "Necunoscut"
+                    pret = extrage_pret(driver, tren, wait, n) if n else None
+                    pret_afisat = pret if pret else "indisponibil"
+
+                    print(f"CFR: {id_tren} | {ora_plecare.strip()} -> {ora_sosire.strip()} | Pret: {pret_afisat} | [{disponibilitate}]")
+                except Exception:
+                    continue
+        except Exception:
+            print("Nu s-au putut prelua datele CFR.")
+
+        print("\nREZULTATE ZBORURI (VOLA)")
+        try:
+            oras_avion_plecare = nume_oras_pentru_avion(parametri["plecare"])
+            oras_avion_sosire = nume_oras_pentru_avion(parametri["sosire"])
+
+            rezultate_vola = scrape_vola(driver, oras_avion_plecare, oras_avion_sosire, parametri["data"])
+
+            if rezultate_vola:
+                for r in rezultate_vola:
+                    print(f"Vola: {r['plecare']} -> {r['sosire']} | Pret: {r['pret']}")
+            else:
+                print("Nu s-au găsit zboruri pe această rută/dată.")
+        except Exception:
+            print("A apărut o eroare la scanarea Vola.")
+
+        print("\nREZULTATE AUTOBUZ (FLIXBUS)")
+        try:
+            oras_autobuz_plecare = nume_oras_pentru_avion(parametri["plecare"])
+            oras_autobuz_sosire = nume_oras_pentru_avion(parametri["sosire"])
+
+            rezultate_flix = scrape_flixbus(driver, oras_autobuz_plecare, oras_autobuz_sosire, parametri["data"])
+            if rezultate_flix:
+                for f in rezultate_flix:
+                    print(f"FlixBus: {f['plecare']} -> {f['sosire']} | Pret: {f['pret']}")
+            else:
+                print("Nu s-au găsit curse FlixBus pe această rută/dată.")
+        except Exception:
+            print("A apărut o eroare la scanarea FlixBus.")
+
+    finally:
+        try:
+            driver.quit()
+        except Exception:
+            pass
